@@ -1,5 +1,20 @@
 # MEMORIA_SANEAMENTO.md
 
+## 0. Instruções (siga isto — revisão do Claude Code, 19/09/2026)
+
+1.  **Nunca aplique offset fixo de -1,5 m (esgoto) / +1,5 m (água).** Sempre confira o dict `DIRETRIZ` de `aguas/pipeline/rede_build.py` para o loteamento em questão (valores reais: esgoto -2,0 m, água +4,25 m Santa Cruz / +4,75 m Imperial). A única regra universal é: água e esgoto em lados OPOSTOS, drenagem no eixo.
+2.  **Antes de aplicar qualquer offset dentro de uma faixa de servidão, meça a largura real dela** (`2·área/perímetro`). Nunca assuma que ela comporta o offset padrão — uma faixa de 1,00 m só cabe um tubo, e um offset de ±0,60 m já a arrastou pra fora, dentro de lote particular.
+3.  **Nunca use "recobrimento de água = 0,9 m"** — esse parâmetro não existe no plugin de abastecimento (o tubo é raso, cota fixa). Se precisar de recobrimento de rua, isso é do ESGOTO (0,90 m), não da água.
+4.  **Antes de calcular a drenagem, confira o campo "Recobrimento (m)" do diálogo** — ele pode abrir em 1,00 m mesmo quando o padrão do escritório é 0,60 m na rua. Corrija manualmente se necessário; não confie no valor pré-preenchido.
+5.  **Sempre calcule a cota de um nó pelo greide, por interpolação geométrica ao longo da poligonal de estacas** — nunca por amostragem de raster (já inventou barriga falsa) nem por índice de estaca (falha se o eixo foi estendido). No encontro servidão×rua, quando as duas fontes de cota discordarem, adote sempre a MENOR.
+6.  **Ao usar `centerlines()` do esqueleto de servidão, confira se algum ramo novo duplica corredor já atendido por outra faixa** antes de aceitar todos os ramos devolvidos.
+7.  **Nunca assuma o sentido de `offset_curve` — teste empiricamente** qual ponta da linha deslocada fica mais perto do início do eixo original.
+8.  **Ao gerar conector de faixa de servidão, verifique se ele pode estar aterrissando em outra faixa de servidão**, não só em trecho de rua.
+9.  **Nunca tente os sites de órgão público (ANA, INMET, gov.br, SGB, UFV, UFLA, UFOP, abrhidro) para IDF** — estão bloqueados pelo proxy. Use direto o banco do Plúvio 2.1 (`aguas/pipeline/pluvio_db.py`) ou `aguas/pipeline/gera_idf.py`.
+10. **No reservatório de água, use sempre o greide da rua em frente ao lote como cota de referência**, nunca o terreno de dentro do lote. Use volume = 1/2 do dia de maior consumo (não 1/3 da NBR 12217 — é decisão de projeto do escritório, não erro a "corrigir"). Se o desnível do loteamento passar de 40 m, setorize com VRP por busca exaustiva do menor número de válvulas, nunca heurística gulosa.
+11. **Ao operar drenagem/esgoto/abastecimento, use as colunas editáveis da tabela de resultados (DN e profundidade) para testar cenários** — editar recalcula em cascata sozinho. Não recalcule manualmente por fora. Lembre que clicar em "Calcular" do zero descarta esses ajustes.
+12. **Não confie na profundidade da rede de esgoto do Santa Cruz gerada pelo diálogo** (está quase constante, 1,10–1,14 m, quando deveria variar 0,40–3,99 m) sem antes confirmar com o RT qual MDT/camada de rede foi usado nessa rodada.
+
 ## 1. Disposição Padrão e Traçado Geométrico
 *   **Gabarito Precisa Agrimensura:** A galeria de drenagem deve correr no eixo da via (offset 0), o esgoto à esquerda (offset -1.5m) e a água à direita (offset +1.5m)[cite: 16, 24].
 *   **Método de Traçado:** Para garantir estabilidade geométrica do paralelismo, trace utilizando `LineString.parallel_offset(dist, side, resolution=4)` da biblioteca Shapely[cite: 14, 16, 24].

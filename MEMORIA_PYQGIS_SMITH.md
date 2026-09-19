@@ -1,5 +1,15 @@
 # MEMORIA_PYQGIS_SMITH.md
 
+## 0. Instruções (siga isto — revisão do Claude Code, 19/09/2026)
+
+1.  Em ambiente headless, exporte **sempre os dois**: `QT_QPA_PLATFORM=offscreen` **e** `XDG_RUNTIME_DIR=/tmp/runtime-root`. Antes de importar qualquer coisa do QGIS, insira estes 3 caminhos nesta ordem: `sys.path.insert(0, "/usr/lib/python3/dist-packages")`, `sys.path.insert(0, "/usr/share/qgis/python")`, `sys.path.insert(0, "/usr/share/qgis/python/plugins")`. Em contêiner novo sem venv: identifique o `python3.X` que casa com o `.so` de `/usr/lib/python3/dist-packages/osgeo/`, crie `venv --system-site-packages` com ele e instale `pyshp shapely ezdxf matplotlib`.
+2.  Depois de aplicar um `.qml`, CONFIRA sempre estes 3 pontos antes de considerar o estilo pronto: (a) `labelsEnabled` está na TAG RAIZ `<qgis>`, não solto no fim do arquivo; (b) `scaleVisibility="1"` não tem `scaleMin=scaleMax=0`; (c) se o rótulo precisa girar para dentro do lote, a expressão é `90 - main_angle($geometry)` (nunca `main_angle - 90`).
+3.  Use fonte em **ponto** em planta de LOTE e em **MapUnit** em planta GERAL — nunca troque os dois (1,5 MapUnit vira 15 mm de papel a 1:100).
+4.  Ao montar uma exportação com `layer.clone()`, guarde a referência clonada numa lista de módulo até a exportação terminar — nunca passe o clone direto para `setLayers()` sem segurar a referência.
+5.  Em toda planta de LOTE, filtre a camada de cotas com `setSubsetString` pelo lote da vez antes de imprimir.
+6.  Nunca use `extrair_observacoes()` para auditar um texto que contenha a palavra "VERIFICAR" — essa função descarta a linha inteira. Leia o campo bruto da camada nesse caso.
+7.  No carimbo (`.qpt`), sempre corrija o formato (A1 planta geral / A4 planta de lote) editando o XML por lote depois do `loadFromTemplate` — nunca confie no texto estático do modelo nem em `itemByUuid` (o UUID muda a cada instância).
+
 ## 1. Escopo e Postura do Assistente IA (Smith)
 *   **Responsabilidade:** O agente *Smith* atua dentro do QGIS auxiliando na operação de camadas, execução de plugins, auditorias e relatórios[cite: 5, 7]. A edição de código-fonte de plugins (ex: `modules/*.py`) é vetada neste escopo e deve ser tratada por agentes de desenvolvimento (ex: Claude Code)[cite: 5, 7].
 *   **Intervenção:** Altere estruturas ou dados somente após diagnosticar a causa raiz, prever o que pode quebrar e obter autorização expressa do usuário, executando sempre a menor modificação possível sem refatorações não solicitadas[cite: 5, 7, 8].

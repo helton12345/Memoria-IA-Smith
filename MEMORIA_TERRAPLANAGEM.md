@@ -1,5 +1,13 @@
 # MEMORIA_TERRAPLANAGEM.md
 
+## 0. Instruções (siga isto — revisão do Claude Code, 19/09/2026)
+
+1.  **Ao investigar qualquer problema de plataforma/cruzamento, meça sempre os DOIS números juntos:** pontos/zonas de cruzamento de curva E m² de caixa de rua intocada. Medir só o primeiro já mascarou a melhora (ou piora) em duas tentativas anteriores.
+2.  **Não tente corrigir sozinho o item aberto "plataforma não chega no limite da caixa da rua"** sem antes trocar a associação polígono→via de "centroide mais próximo do eixo" para "o polígono que CONTÉM a estaca terminal" (`superficie_pista_poligono.py`) — é a base já mapeada para a próxima tentativa, não invente uma abordagem nova sem passar por essa mudança primeiro.
+3.  **Se um combo de M2, M3, M4, M5, Platô, Locação ou Cul-de-sac vier vazio ou com a camada errada, rode o módulo anterior primeiro** — não é bug de UI, é a trava de consistência (`VerificadorConsistencia`) avisando que falta dado gravado no projeto.
+4.  **Sempre exporte DXF em R2000 (AC1015), nunca em versão mais nova** — o AutoCAD do escritório recusa abrir DXF de versão superior à instalada.
+5.  **Antes de mexer em `FATOR_ALARGAMENTO_MAX` ou `FOLGA_RECORTE_M`, saiba o que cada um faz:** o primeiro é o teto relativo de alargamento de plataforma em cruzamento (`modules/m3_secoes.py`, hoje 1,5); o segundo é a folga de recorte entre cruzamentos vizinhos (`engine/cruzamento.py`, hoje 0,30 m). Mudar um sem entender o outro pode reintroduzir o degrau/furo que eles existem para evitar.
+
 ## 1. Processamento de Malha (TIN) e Curvas de Nível
 *   **Integridade do Terreno Natural:** O talude original fora da caixa viária deve ser rigorosamente preservado[cite: 26]. Utilize a Superfície Projetada (MTP) em alta resolução (0,5 m) e faça a integração com o terreno natural via *warp* com interpolação bilinear[cite: 26, 28]. Extraia os contornos com `gdal.ContourGenerate`[cite: 28].
 *   **Buracos na Superfície:** Falhas no TIN devem ser corrigidas no editor de malha removendo vértices problemáticos um a um, pois a exclusão em bloco arruína o escore da malha[cite: 8, 9]. Ao colar o resultado, limite a um raio de ~15 m para evitar a importação de artefatos[cite: 8].

@@ -17,3 +17,26 @@
 ## 4. Contingência e Fluxo de Entrega Pragmática
 *   **Pivot Tático:** Quando ferramentas nativas falharem, entrarem em loop ou não gerarem arquivos esperados devido a erro de subprocesso, a prioridade máxima é efetuar a entrega de engenharia[cite: 18]. Opere um pivot gerando a infraestrutura via scripts Python diretos e rotinas de deslocamento geométrico em Shapely, desde que as normas hidráulicas e normativas fiquem asseguradas[cite: 17, 18].
 *   **Transparência:** Caso essas simulações manuais sejam necessárias, anexe um arquivo `LEIA-ME_LIMITACAO.txt` junto à pasta de saída explicando claramente o desvio de geração para a aprovação final[cite: 18, 29].
+
+## 5. Correções e Adições (revisão do Claude Code, 19/09/2026)
+
+Seção adicionada após revisão cruzada com o histórico real de desenvolvimento dos plugins (`CLAUDE.md` do repositório `terraplanagem-`). Não altera nada do que já estava escrito acima — só completa lacunas que já causaram erro real em produção.
+
+*   **Ambiente Headless — faltava metade da receita.** Além de `QT_QPA_PLATFORM=offscreen`, é preciso `export XDG_RUNTIME_DIR=/tmp/runtime-root` (sem isso o Qt reclama do runtime dir). E o `sys.path.insert` tem 3 linhas específicas, nesta ordem, antes de importar qualquer coisa do QGIS:
+    ```python
+    sys.path.insert(0, "/usr/lib/python3/dist-packages")
+    sys.path.insert(0, "/usr/share/qgis/python")
+    sys.path.insert(0, "/usr/share/qgis/python/plugins")
+    ```
+    Em contêiner novo sem venv pronto: descubra qual `python3.X` casa com o `.so` em `/usr/lib/python3/dist-packages/osgeo/` (o nome do arquivo diz a versão), crie um `venv --system-site-packages` com esse Python e instale `pyshp shapely ezdxf matplotlib` — escrever fora do venv falha por PEP 668.
+
+*   **Estilos/plantas no QGIS — o `.qml` sozinho não garante nada; estes detalhes já quebraram planta em produção:**
+    *   `labelsEnabled` é **atributo da tag raiz `<qgis>`**, não elemento filho. Escrito solto no fim do arquivo, o QGIS ignora silenciosamente: a camada carrega a expressão de rótulo inteira, mas não rotula nada.
+    *   `scaleVisibility="1"` com `scaleMin=scaleMax=0` é uma faixa de escala de ZERO a ZERO — nenhum rótulo aparece, sem erro nenhum.
+    *   Propriedades definidas por dados (o botão de expressão ao lado de um campo do estilo) apontam para `auxiliary_storage_*`, que só existe dentro do **projeto** QGIS. Um shapefile carregado cru não tem esse armazenamento: a expressão dá erro e a propriedade morre calada (foi assim que sumiu a rotação de um rótulo). A expressão que gira o rótulo para dentro do lote é `90 - main_angle($geometry)` — com `main_angle - 90` o texto sai espelhado.
+    *   Tamanho de fonte em **MapUnit é em METRO**: 1,5 unidade de mapa dá 1,8 mm de papel a 1:850 (planta geral), mas 15 mm a 1:100 (planta de lote). Em planta de LOTE use fonte em **ponto**, nunca MapUnit.
+    *   `layer.clone()` passado direto para `setLayers()` de uma exportação é coletado pelo garbage collector antes da exportação terminar, e o mapa volta silenciosamente para a camada original do projeto (com rótulo/contorno errados). Guarde a referência clonada numa lista de módulo até a exportação acabar.
+    *   Em planta de **lote**, filtre a camada de cotas por `setSubsetString` pelo lote da vez. Sem isso, cada planta desenha as cotas e os `V1..Vn` de TODOS os lotes por cima — "arco não agrupado" muitas vezes é cota de vizinho aparecendo, não erro de agrupamento.
+    *   No carimbo (arquivo `.qpt`), o rótulo do formato (ex. "A3") é texto estático no XML, com UUID fixo — mas depois do `loadFromTemplate` os itens do layout ganham UUID novo a cada instância, então `itemByUuid` não acha o item do modelo. Corrigir o carimbo (formato certo por produto: A1 planta geral, A4 planta de lote) exige editar o XML por lote, nunca assumir que o texto já vem certo.
+
+*   **`__DANI_MODO_SILENCIOSO__` grava um aviso que se autodestrói na leitura.** Ele escreve "MODO SILENCIOSO: ... VERIFICAR antes de assinar" nas observações do lote — mas `extrair_observacoes()` trata qualquer linha contendo "VERIFICAR" como cabeçalho de seção e **descarta exatamente essa linha**. Se for auditar observações geradas em modo silencioso, não confie em `extrair_observacoes()` para isso — leia o campo bruto da camada.
